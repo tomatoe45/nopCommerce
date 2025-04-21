@@ -1,28 +1,31 @@
 ﻿using Nop.Web.Framework.Models;
 
-namespace Nop.Web.Areas.Admin.Models.Directory
+namespace Nop.Web.Areas.Admin.Models.Directory;
+
+/// <summary>
+/// Represents a measure search model
+/// </summary>
+public partial record MeasureSearchModel : BaseSearchModel
 {
-    /// <summary>
-    /// Represents a measure search model
-    /// </summary>
-    public partial class MeasureSearchModel : BaseSearchModel
+    #region Ctor
+
+    public MeasureSearchModel()
     {
-        #region Ctor
-
-        public MeasureSearchModel()
-        {
-            this.MeasureDimensionSearchModel = new MeasureDimensionSearchModel();
-            this.MeasureWeightSearchModel = new MeasureWeightSearchModel();
-        }
-
-        #endregion
-
-        #region Properties
-
-        public MeasureDimensionSearchModel MeasureDimensionSearchModel { get; set; }
-
-        public MeasureWeightSearchModel MeasureWeightSearchModel { get; set; }
-
-        #endregion
+        MeasureDimensionSearchModel = new MeasureDimensionSearchModel();
+        MeasureWeightSearchModel = new MeasureWeightSearchModel();
+        AddMeasureDimension = new MeasureDimensionModel();
+        AddMeasureWeight = new MeasureWeightModel();
     }
+
+    #endregion
+
+    #region Properties
+
+    public MeasureDimensionSearchModel MeasureDimensionSearchModel { get; set; }
+
+    public MeasureWeightSearchModel MeasureWeightSearchModel { get; set; }
+
+    public MeasureDimensionModel AddMeasureDimension { get; set; }
+    public MeasureWeightModel AddMeasureWeight { get; set; }
+    #endregion
 }

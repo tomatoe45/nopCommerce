@@ -1,94 +1,83 @@
-using System.Collections.Generic;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Nop.Core.Domain.Customers;
 
-namespace Nop.Services.Authentication.External
+namespace Nop.Services.Authentication.External;
+
+/// <summary>
+/// External authentication service
+/// </summary>
+public partial interface IExternalAuthenticationService
 {
     /// <summary>
-    /// External authentication service
+    /// Authenticate user by passed parameters
     /// </summary>
-    public partial interface IExternalAuthenticationService
-    {
-        #region External authentication methods
+    /// <param name="parameters">External authentication parameters</param>
+    /// <param name="returnUrl">URL to which the user will return after authentication</param>
+    /// <returns>
+    /// A task that represents the asynchronous operation
+    /// The task result contains the result of an authentication
+    /// </returns>
+    Task<IActionResult> AuthenticateAsync(ExternalAuthenticationParameters parameters, string returnUrl = null);
 
-        /// <summary>
-        /// Load active external authentication methods
-        /// </summary>
-        /// <param name="customer">Load records allowed only to a specified customer; pass null to ignore ACL permissions</param>
-        /// <param name="storeId">Load records allowed only in a specified store; pass 0 to load all records</param>
-        /// <returns>Payment methods</returns>
-        IList<IExternalAuthenticationMethod> LoadActiveExternalAuthenticationMethods(Customer customer = null, int storeId = 0);
+    /// <summary>
+    /// Get the external authentication records by identifier
+    /// </summary>
+    /// <param name="externalAuthenticationRecordId">External authentication record identifier</param>
+    /// <returns>
+    /// A task that represents the asynchronous operation
+    /// The task result contains the result
+    /// </returns>
+    Task<ExternalAuthenticationRecord> GetExternalAuthenticationRecordByIdAsync(int externalAuthenticationRecordId);
 
-        /// <summary>
-        /// Load external authentication method by system name
-        /// </summary>
-        /// <param name="systemName">System name</param>
-        /// <param name="customer">Load records allowed only to a specified customer; pass null to ignore ACL permissions</param>
-        /// <param name="storeId">Load records allowed only on the specified store; pass 0 to ignore store mappings</param>
-        /// <returns>Found external authentication method</returns>
-        IExternalAuthenticationMethod LoadExternalAuthenticationMethodBySystemName(string systemName,
-            Customer customer = null, int storeId = 0);
+    /// <summary>
+    /// Get all the external authentication records by customer
+    /// </summary>
+    /// <param name="customer">Customer</param>
+    /// <returns>
+    /// A task that represents the asynchronous operation
+    /// The task result contains the customer
+    /// </returns>
+    Task<IList<ExternalAuthenticationRecord>> GetCustomerExternalAuthenticationRecordsAsync(Customer customer);
 
-        /// <summary>
-        /// Load all external authentication methods
-        /// </summary>
-        /// <param name="customer">Load records allowed only to a specified customer; pass null to ignore ACL permissions</param>
-        /// <param name="storeId">Load records allowed only in a specified store; pass 0 to load all records</param>
-        /// <returns>External authentication methods</returns>
-        IList<IExternalAuthenticationMethod> LoadAllExternalAuthenticationMethods(Customer customer = null, int storeId = 0);
+    /// <summary>
+    /// Delete the external authentication record
+    /// </summary>
+    /// <param name="externalAuthenticationRecord">External authentication record</param>
+    /// <returns>A task that represents the asynchronous operation</returns>
+    Task DeleteExternalAuthenticationRecordAsync(ExternalAuthenticationRecord externalAuthenticationRecord);
 
-        /// <summary>
-        /// Check whether authentication by the passed external authentication method is available 
-        /// </summary>
-        /// <param name="systemName">System name of the external authentication method</param>
-        /// <returns>True if authentication is available; otherwise false</returns>
-        bool ExternalAuthenticationMethodIsAvailable(string systemName);
+    /// <summary>
+    /// Get the external authentication record
+    /// </summary>
+    /// <param name="parameters">External authentication parameters</param>
+    /// <returns>
+    /// A task that represents the asynchronous operation
+    /// The task result contains the result
+    /// </returns>
+    Task<ExternalAuthenticationRecord> GetExternalAuthenticationRecordByExternalAuthenticationParametersAsync(ExternalAuthenticationParameters parameters);
 
-        /// <summary>
-        /// Check whether external authentication method is active
-        /// </summary>
-        /// <param name="method">External authentication method</param>
-        /// <returns>True if method is active; otherwise false</returns>
-        bool IsExternalAuthenticationMethodActive(IExternalAuthenticationMethod method);
+    /// <summary>
+    /// Associate external account with customer
+    /// </summary>
+    /// <param name="customer">Customer</param>
+    /// <param name="parameters">External authentication parameters</param>
+    /// <returns>A task that represents the asynchronous operation</returns>
+    Task AssociateExternalAccountWithUserAsync(Customer customer, ExternalAuthenticationParameters parameters);
 
-        #endregion
+    /// <summary>
+    /// Get the particular user with specified parameters
+    /// </summary>
+    /// <param name="parameters">External authentication parameters</param>
+    /// <returns>
+    /// A task that represents the asynchronous operation
+    /// The task result contains the customer
+    /// </returns>
+    Task<Customer> GetUserByExternalAuthenticationParametersAsync(ExternalAuthenticationParameters parameters);
 
-        #region Authentication
-
-        /// <summary>
-        /// Authenticate user by passed parameters
-        /// </summary>
-        /// <param name="parameters">External authentication parameters</param>
-        /// <param name="returnUrl">URL to which the user will return after authentication</param>
-        /// <returns>Result of an authentication</returns>
-        IActionResult Authenticate(ExternalAuthenticationParameters parameters, string returnUrl = null);
-
-        #endregion
-
-        /// <summary>
-        /// Associate external account with customer
-        /// </summary>
-        /// <param name="customer">Customer</param>
-        /// <param name="parameters">External authentication parameters</param>
-        void AssociateExternalAccountWithUser(Customer customer, ExternalAuthenticationParameters parameters);
-
-        /// <summary>
-        /// Get the particular user with specified parameters
-        /// </summary>
-        /// <param name="parameters">External authentication parameters</param>
-        /// <returns>Customer</returns>
-        Customer GetUserByExternalAuthenticationParameters(ExternalAuthenticationParameters parameters);
-
-        /// <summary>
-        /// Remove the association
-        /// </summary>
-        /// <param name="parameters">External authentication parameters</param>
-        void RemoveAssociation(ExternalAuthenticationParameters parameters);
-
-        /// <summary>
-        /// Delete the external authentication record
-        /// </summary>
-        /// <param name="externalAuthenticationRecord">External authentication record</param>
-        void DeleteExternalAuthenticationRecord(ExternalAuthenticationRecord externalAuthenticationRecord);
-    }
+    /// <summary>
+    /// Remove the association
+    /// </summary>
+    /// <param name="parameters">External authentication parameters</param>
+    /// <returns>A task that represents the asynchronous operation</returns>
+    Task RemoveAssociationAsync(ExternalAuthenticationParameters parameters);
 }

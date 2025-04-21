@@ -1,27 +1,24 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using FluentValidation.Attributes;
-using Nop.Web.Framework.Mvc.ModelBinding;
 using Nop.Web.Framework.Models;
-using Nop.Web.Validators.ShoppingCart;
+using Nop.Web.Framework.Mvc.ModelBinding;
 
-namespace Nop.Web.Models.ShoppingCart
+namespace Nop.Web.Models.ShoppingCart;
+
+public partial record WishlistEmailAFriendModel : BaseNopModel
 {
-    [Validator(typeof(WishlistEmailAFriendValidator))]
-    public partial class WishlistEmailAFriendModel : BaseNopModel
-    {
-        [DataType(DataType.EmailAddress)]
-        [NopResourceDisplayName("Wishlist.EmailAFriend.FriendEmail")]
-        public string FriendEmail { get; set; }
-        
-        [NopResourceDisplayName("Wishlist.EmailAFriend.YourEmailAddress")]
-        public string YourEmailAddress { get; set; }
-        
-        [NopResourceDisplayName("Wishlist.EmailAFriend.PersonalMessage")]
-        public string PersonalMessage { get; set; }
+    [DataType(DataType.EmailAddress)]
+    [NopResourceDisplayName("Wishlist.EmailAFriend.FriendEmail")]
+    public string FriendEmail { get; set; }
 
-        public bool SuccessfullySent { get; set; }
-        public string Result { get; set; }
+    [DataType(DataType.EmailAddress)]
+    [NopResourceDisplayName("Wishlist.EmailAFriend.YourEmailAddress")]
+    public string YourEmailAddress { get; set; }
 
-        public bool DisplayCaptcha { get; set; }
-    }
+    [NopResourceDisplayName("Wishlist.EmailAFriend.PersonalMessage")]
+    public string PersonalMessage { get; set; }
+
+    public bool SuccessfullySent { get; set; }
+    public string Result { get; set; }
+
+    public bool DisplayCaptcha { get; set; }
 }

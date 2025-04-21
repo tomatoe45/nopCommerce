@@ -1,33 +1,13 @@
-﻿@using Nop.Services.Plugins
-@using Nop.Services.Security
-@using Nop.Web.Framework.Menu
-@inject IPluginService pluginService
-@inject IPermissionService permissionService
-@{
-    //load sitemap
-    var siteMap = new XmlSiteMap();
-    siteMap.LoadFrom("~/Areas/Admin/sitemap.config");
-}
-<ul class="sidebar-menu" data-widget="tree">
+﻿@using Nop.Web.Framework.Menu
+
+@inject IAdminMenu siteMap;
+
+<ul class="nav nav-pills nav-sidebar flex-column nav-legacy" data-widget="treeview" role="menu">
     @{
-        //standard (default) items
-        var rootNode = siteMap.RootNode;
-        //plugins
-        var adminMenuPlugins = pluginService.GetPlugins<IAdminMenuPlugin>().ToList();
-        foreach (var adminMenuPlugin in adminMenuPlugins)
+        //display menu items
+        foreach (var item in (await siteMap.GetRootNodeAsync()).ChildNodes.Where(n => n.Visible))
         {
-            adminMenuPlugin.ManageSiteMap(rootNode);
+            @await Html.PartialAsync("_MenuItem", item)
         }
-        //"Plugins" menu item should be visible when it has some child nodes
-        var pluginNode = rootNode.ChildNodes.FirstOrDefault(x => x.SystemName == "Third party plugins");
-        if (pluginNode != null && pluginNode.Visible)
-        {
-            var hasManagePluginsPermission = permissionService.Authorize(StandardPermissionProvider.ManagePlugins);
-            pluginNode.Visible = hasManagePluginsPermission && pluginNode.ChildNodes.Any(x => x.Visible);
-        }
-    }
-    @foreach (var item in rootNode.ChildNodes.Where(x => x.Visible))
-    {
-        @await Html.PartialAsync("_MenuItem", item)
     }
 </ul>

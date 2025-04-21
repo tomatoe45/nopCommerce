@@ -1,137 +1,153 @@
-﻿using System;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Extensions.Primitives;
-using Nop.Core.Data;
+using Nop.Core;
 using Nop.Core.Domain.Security;
+using Nop.Core.Http.Extensions;
+using Nop.Data;
+using Nop.Services.Logging;
 using Nop.Web.Framework.Security.Captcha;
 
-namespace Nop.Web.Framework.Mvc.Filters
+namespace Nop.Web.Framework.Mvc.Filters;
+
+/// <summary>
+/// Represents a filter attribute enabling CAPTCHA validation
+/// </summary>
+public sealed class ValidateCaptchaAttribute : TypeFilterAttribute
 {
+    #region Ctor
+
     /// <summary>
-    /// Represents a filter attribute enabling CAPTCHA validation
+    /// Create instance of the filter attribute 
     /// </summary>
-    public class ValidateCaptchaAttribute : TypeFilterAttribute
+    /// <param name="actionParameterName">The name of the action parameter to which the result will be passed</param>
+    public ValidateCaptchaAttribute(string actionParameterName = "captchaValid") : base(typeof(ValidateCaptchaFilter))
     {
+        Arguments = [actionParameterName];
+    }
+
+    #endregion
+
+    #region Nested filter
+
+    /// <summary>
+    /// Represents a filter enabling CAPTCHA validation
+    /// </summary>
+    private class ValidateCaptchaFilter : IAsyncActionFilter
+    {
+        #region Constants
+
+        private const string RESPONSE_FIELD_KEY = "recaptcha_response_field";
+        private const string G_RESPONSE_FIELD_KEY = "g-recaptcha-response";
+
+        #endregion
+
+        #region Fields
+
+        protected readonly string _actionParameterName;
+        protected readonly CaptchaHttpClient _captchaHttpClient;
+        protected readonly CaptchaSettings _captchaSettings;
+        protected readonly ILogger _logger;
+        protected readonly IWorkContext _workContext;
+
+        #endregion
+
         #region Ctor
 
-        /// <summary>
-        /// Create instance of the filter attribute 
-        /// </summary>
-        /// <param name="actionParameterName">The name of the action parameter to which the result will be passed</param>
-        public ValidateCaptchaAttribute(string actionParameterName = "captchaValid") : base(typeof(ValidateCaptchaFilter))
+        public ValidateCaptchaFilter(string actionParameterName,
+            CaptchaHttpClient captchaHttpClient,
+            CaptchaSettings captchaSettings,
+            ILogger logger,
+            IWorkContext workContext)
         {
-            this.Arguments = new object[] { actionParameterName };
+            _actionParameterName = actionParameterName;
+            _captchaHttpClient = captchaHttpClient;
+            _captchaSettings = captchaSettings;
+            _logger = logger;
+            _workContext = workContext;
         }
 
         #endregion
 
-        #region Nested filter
+        #region Utilities
 
         /// <summary>
-        /// Represents a filter enabling CAPTCHA validation
+        /// Called asynchronously before the action, after model binding is complete.
         /// </summary>
-        private class ValidateCaptchaFilter : IActionFilter
+        /// <param name="context">A context for action filters</param>
+        /// <returns>A task that represents the asynchronous operation</returns>
+        private async Task ValidateCaptchaAsync(ActionExecutingContext context)
         {
-            #region Constants
+            ArgumentNullException.ThrowIfNull(context);
 
-            private const string CHALLENGE_FIELD_KEY = "recaptcha_challenge_field";
-            private const string RESPONSE_FIELD_KEY = "recaptcha_response_field";
-            private const string G_RESPONSE_FIELD_KEY = "g-recaptcha-response";
+            if (!DataSettingsManager.IsDatabaseInstalled())
+                return;
 
-            #endregion
-
-            #region Fields
-
-            private readonly string _actionParameterName;
-            private readonly CaptchaSettings _captchaSettings;
-
-            #endregion
-
-            #region Ctor
-
-            public ValidateCaptchaFilter(string actionParameterName, CaptchaSettings captchaSettings)
+            //whether CAPTCHA is enabled
+            if (_captchaSettings.Enabled)
             {
-                this._actionParameterName = actionParameterName;
-                this._captchaSettings = captchaSettings;
-            }
-
-            #endregion
-
-            #region Utilities
-
-            /// <summary>
-            /// Validate CAPTCHA
-            /// </summary>
-            /// <param name="context">A context for action filters</param>
-            /// <returns>True if CAPTCHA is valid; otherwise false</returns>
-            protected bool ValidateCaptcha(ActionExecutingContext context)
-            {
+                //push the validation result as an action parameter
                 var isValid = false;
 
                 //get form values
-                var captchaChallengeValue = context.HttpContext.Request.Form[CHALLENGE_FIELD_KEY];
-                var captchaResponseValue = context.HttpContext.Request.Form[RESPONSE_FIELD_KEY];
-                var gCaptchaResponseValue = context.HttpContext.Request.Form[G_RESPONSE_FIELD_KEY];
+                var captchaResponseValue = await context.HttpContext.Request.GetFormValueAsync(RESPONSE_FIELD_KEY);
+                var gCaptchaResponseValue = await context.HttpContext.Request.GetFormValueAsync(G_RESPONSE_FIELD_KEY);
 
-                if ((!StringValues.IsNullOrEmpty(captchaChallengeValue) && !StringValues.IsNullOrEmpty(captchaResponseValue)) || !StringValues.IsNullOrEmpty(gCaptchaResponseValue))
+                if (!StringValues.IsNullOrEmpty(captchaResponseValue) || !StringValues.IsNullOrEmpty(gCaptchaResponseValue))
                 {
-                    //create CAPTCHA validator
-                    var captchaValidtor = new GReCaptchaValidator()
-                    {
-                        SecretKey = _captchaSettings.ReCaptchaPrivateKey,
-                        RemoteIp = context.HttpContext.Connection.RemoteIpAddress?.ToString(),
-                        Response = !StringValues.IsNullOrEmpty(captchaResponseValue) ? captchaResponseValue : gCaptchaResponseValue,
-                        Challenge = captchaChallengeValue
-                    };
-
                     //validate request
-                    var recaptchaResponse = captchaValidtor.Validate();
-                    isValid = recaptchaResponse.IsValid;
+                    try
+                    {
+                        var value = !StringValues.IsNullOrEmpty(captchaResponseValue) ? captchaResponseValue : gCaptchaResponseValue;
+                        var response = await _captchaHttpClient.ValidateCaptchaAsync(value);
+
+                        switch (_captchaSettings.CaptchaType)
+                        {
+                            case CaptchaType.CheckBoxReCaptchaV2:
+                                isValid = response.IsValid;
+                                break;
+
+                            case CaptchaType.ReCaptchaV3:
+                                isValid = response.IsValid &&
+                                          response.Action == context.RouteData.Values["action"].ToString() &&
+                                          response.Score > _captchaSettings.ReCaptchaV3ScoreThreshold;
+                                break;
+
+                            default:
+                                break;
+                        }
+                    }
+                    catch (Exception exception)
+                    {
+                        await _logger.ErrorAsync("Error occurred on CAPTCHA validation", exception, await _workContext.GetCurrentCustomerAsync());
+                    }
                 }
 
-                return isValid;
+                context.ActionArguments[_actionParameterName] = isValid;
             }
+            else
+                context.ActionArguments[_actionParameterName] = false;
+        }
 
-            #endregion
+        #endregion
 
-            #region Methods
+        #region Methods
 
-            /// <summary>
-            /// Called before the action executes, after model binding is complete
-            /// </summary>
-            /// <param name="context">A context for action filters</param>
-            public void OnActionExecuting(ActionExecutingContext context)
-            {
-                if (context == null)
-                    throw new ArgumentNullException(nameof(context));
-
-                if (!DataSettingsManager.DatabaseIsInstalled)
-                    return;
-
-                //whether CAPTCHA is enabled
-                if (_captchaSettings.Enabled && context.HttpContext?.Request != null)
-                {
-                    //push the validation result as an action parameter
-                    context.ActionArguments[_actionParameterName] = ValidateCaptcha(context);
-                }
-                else
-                    context.ActionArguments[_actionParameterName] = false;
-
-            }
-
-            /// <summary>
-            /// Called after the action executes, before the action result
-            /// </summary>
-            /// <param name="context">A context for action filters</param>
-            public void OnActionExecuted(ActionExecutedContext context)
-            {
-                //do nothing
-            }
-
-            #endregion
+        /// <summary>
+        /// Called asynchronously before the action, after model binding is complete.
+        /// </summary>
+        /// <param name="context">A context for action filters</param>
+        /// <param name="next">A delegate invoked to execute the next action filter or the action itself</param>
+        /// <returns>A task that represents the asynchronous operation</returns>
+        public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
+        {
+            await ValidateCaptchaAsync(context);
+            if (context.Result == null)
+                await next();
         }
 
         #endregion
     }
+
+    #endregion
 }
